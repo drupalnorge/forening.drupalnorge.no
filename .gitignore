@@ -1,3 +1,8 @@
+# Ignore all modules and themes. (Add custom themes/modules with "git add".)
+sites/*/modules
+sites/*/themes
+sites/*/libraries
+
 # Ignore configuration files that may contain sensitive information.
 sites/*/*settings*.php
 
@@ -10,11 +15,13 @@ sites/*/private
 # Ignore default text files
 .htaccess
 robots.txt
+robots.txt.orig
 /CHANGELOG.txt
 /COPYRIGHT.txt
 /INSTALL*.txt
 /LICENSE.txt
 /MAINTAINERS.txt
+/PATCHES.txt
 /UPGRADE.txt
 /README.txt
 sites/all/README.txt
