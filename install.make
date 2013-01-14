@@ -8,7 +8,10 @@ projects[drupal][version] = "6.27"
 projects[openatrium][type] = "profile"
 projects[openatrium][version] = "1.6"
 
-; Security updates
+; Patches for Open Atrium
+projects[drupal][patch][] = "https://community.openatrium.com/sites/community.openatrium.com/files/purl_diable_path.patch"
+
+; Security updates for Open Atrium
 projects[ctools][version] = "1.10"
 projects[context][version] = "3.1"
 

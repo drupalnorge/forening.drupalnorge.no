@@ -1,0 +1,281 @@
+diff --git a/profiles/openatrium/modules/contrib/purl/includes/purl_domain.inc b/profiles/openatrium/modules/contrib/purl/includes/purl_domain.inc
+index 9b84d40..15c69bb 100644
+--- a/profiles/openatrium/modules/contrib/purl/includes/purl_domain.inc
++++ b/profiles/openatrium/modules/contrib/purl/includes/purl_domain.inc
+@@ -49,7 +49,7 @@ class purl_domain implements purl_processor {
+   public function rewrite(&$path, &$options, $element) {
+     $options['absolute'] = TRUE;
+     if ($base_url = $this->base_url()) {
+-      if (!_purl_skip($element, $options)) {
++      if (!_purl_skip($element, $options, $path)) {
+         $base = parse_url($base_url);
+         $options['base_url'] = "{$base['scheme']}://{$element->value}{$base['path']}";
+       }
+diff --git a/profiles/openatrium/modules/contrib/purl/includes/purl_pair.inc b/profiles/openatrium/modules/contrib/purl/includes/purl_pair.inc
+index b5f3bf6..91ec4ff 100644
+--- a/profiles/openatrium/modules/contrib/purl/includes/purl_pair.inc
++++ b/profiles/openatrium/modules/contrib/purl/includes/purl_pair.inc
+@@ -57,7 +57,7 @@ class purl_pair extends purl_path {
+   }
+ 
+   public function rewrite(&$path, &$options, $element) {
+-    if (!_purl_skip($element, $options)) {
++    if (!_purl_skip($element, $options, $path)) {
+       $items = explode('/', $path);
+       array_unshift($items, "{$element->value}/{$element->id}");
+       $path = implode('/', $items);
+diff --git a/profiles/openatrium/modules/contrib/purl/includes/purl_path.inc b/profiles/openatrium/modules/contrib/purl/includes/purl_path.inc
+index 7e6de90..ea41fc3 100644
+--- a/profiles/openatrium/modules/contrib/purl/includes/purl_path.inc
++++ b/profiles/openatrium/modules/contrib/purl/includes/purl_path.inc
+@@ -82,7 +82,7 @@ class purl_path implements purl_processor {
+     // and we won't do any rewriting.
+     $alt = $this->remove($path, $element);
+ 
+-    if ($alt == $path && !_purl_skip($element, $options)) {
++    if ($alt == $path && !_purl_skip($element, $options, $path)) {
+       $items = explode('/', $path);
+       array_unshift($items, $element->value);
+       $path = implode('/', $items);
+diff --git a/profiles/openatrium/modules/contrib/purl/includes/purl_querystring.inc b/profiles/openatrium/modules/contrib/purl/includes/purl_querystring.inc
+index 0e78240..a749ab8 100644
+--- a/profiles/openatrium/modules/contrib/purl/includes/purl_querystring.inc
++++ b/profiles/openatrium/modules/contrib/purl/includes/purl_querystring.inc
+@@ -78,7 +78,7 @@ class purl_querystring implements purl_processor {
+    * Just need to add the value to the front of the path.
+    */
+   public function rewrite(&$path, &$options, $element) {
+-    if (!_purl_skip($element, $options)) {
++    if (!_purl_skip($element, $options, $path)) {
+       $qs = array();
+       parse_str($options['query'], $qs);
+       $qs[$element->value] = $element->id;
+diff --git a/profiles/openatrium/modules/contrib/purl/includes/purl_subdomain.inc b/profiles/openatrium/modules/contrib/purl/includes/purl_subdomain.inc
+index 4794d90..9fee0f8 100644
+--- a/profiles/openatrium/modules/contrib/purl/includes/purl_subdomain.inc
++++ b/profiles/openatrium/modules/contrib/purl/includes/purl_subdomain.inc
+@@ -47,7 +47,7 @@ class purl_subdomain implements purl_processor {
+   public function rewrite(&$path, &$options, $element) {
+     $options['absolute'] = TRUE;
+     if ($base_url = $this->base_url()) {
+-      if (!_purl_skip($element, $options)) {
++      if (!_purl_skip($element, $options, $path)) {
+         $base = parse_url($base_url);
+         $port = (!empty($base['port'])) ? ':'.$base['port'] : "";
+         $options['base_url'] = "{$base['scheme']}://{$element->value}.{$base['host']}{$port}{$base['path']}";
+diff --git a/profiles/openatrium/modules/contrib/purl/purl.admin.css b/profiles/openatrium/modules/contrib/purl/purl.admin.css
+new file mode 100644
+index 0000000..0ccaea8
+--- /dev/null
++++ b/profiles/openatrium/modules/contrib/purl/purl.admin.css
+@@ -0,0 +1,10 @@
++.purl-disabled-form th.remove { width:5%; }
++
++.purl-disabled-form th.path { width:50%; }
++
++.purl-disabled-form .form-checkboxes .form-item {
++  display:inline;
++  margin-right:20px;
++  }
++
++.purl-disabled-form textarea { width:95%; }
+diff --git a/profiles/openatrium/modules/contrib/purl/purl.admin.inc b/profiles/openatrium/modules/contrib/purl/purl.admin.inc
+index ebdb6fe..5efa7ea 100644
+--- a/profiles/openatrium/modules/contrib/purl/purl.admin.inc
++++ b/profiles/openatrium/modules/contrib/purl/purl.admin.inc
+@@ -278,3 +278,114 @@ function purl_item_edit_validate($form, &$form_state) {
+ function purl_item_edit_submit($form, &$form_state) {
+   menu_cache_clear($form_state['values']['menu']['menu_name']);
+ }
++
++/**
++ * Form: PURL disabled paths.
++ */
++function purl_disabled_path_form($form_state) {
++  $form = array('#tree' => TRUE);
++
++  // Retrieve options array of PURL providers.
++  $options = array();
++  foreach (purl_providers() as $provider => $info) {
++    $options[$provider] = $info['name'];
++  }
++
++  // Iterate through existing disabled paths and generate provider options.
++  if ($purl_disabled_path = variable_get('purl_disabled_path', array())) {
++    $form['purl_disabled_path'] = array('#tree' => TRUE);
++    foreach ($purl_disabled_path as $pathset => $providers) {
++      $form['purl_disabled_path'][$pathset] = array(
++        '#tree' => TRUE,
++        '#type' => 'checkboxes',
++        '#options' => $options,
++        '#default_value' => $providers,
++      );
++      $form['remove'][$pathset] = array(
++        '#type' => 'checkbox',
++      );
++    }
++    $form['save'] = array(
++      '#type' => 'submit',
++      '#value' => t('Save'),
++      '#weight' => 10,
++    );
++  }
++
++  $form['add']['pathset'] = array(
++    '#type' => 'textarea',
++    '#description' => t("Enter one page per line as Drupal paths. The '*' character is a wildcard. Example paths are %blog for the blog page and %blog-wildcard for every personal blog. %front is the front page.", array('%blog' => 'blog', '%blog-wildcard' => 'blog/*', '%front' => '<front>')),
++    '#resizable' => FALSE,
++    '#rows' => 4,
++  );
++  $form['add']['submit'] = array(
++    '#type' => 'submit',
++    '#value' => t('Add pathset'),
++    '#submit' => array('purl_disabled_path_form_add_submit'),
++  );
++  return $form;
++}
++
++/**
++ * Save adjustments to purl_disabled_path paths.
++ */
++function purl_disabled_path_form_submit($form, &$form_state) {
++  $purl_disabled_path = variable_get('purl_disabled_path', array());
++  if (!empty($form_state['values']['purl_disabled_path'])) {
++    $purl_disabled_path = $form_state['values']['purl_disabled_path'];
++  }
++  foreach (array_keys(array_filter($form_state['values']['remove'])) as $pathset) {
++    if (isset($purl_disabled_path[$pathset])) {
++      unset($purl_disabled_path[$pathset]);
++    }
++  }
++  variable_set('purl_disabled_path', $purl_disabled_path);
++}
++
++/**
++ * Add a new path to purl_disabled_path paths.
++ */
++function purl_disabled_path_form_add_submit($form, &$form_state) {
++  if (!empty($form_state['values']['add']['pathset'])) {
++    $path = $form_state['values']['add']['pathset'];
++    $purl_disabled_path = variable_get('purl_disabled_path', array());
++    $purl_disabled_path[$path] = array();
++    variable_set('purl_disabled_path', $purl_disabled_path);
++  }
++}
++
++/**
++ * Theme function for theme('purl_disabled_path_form').
++ */
++function theme_purl_disabled_path_form($form) {
++  drupal_add_css(drupal_get_path("module", "purl") ."/purl.admin.css");
++
++  // Add form.
++  $header = array(array('data' => t('Add pathset'), 'class' => 'path', 'colspan' => 3));
++  $rows = array(array(
++    array('data' => drupal_render($form['add']['pathset']), 'colspan' => 2),
++    drupal_render($form['add']['submit']),
++  ));
++
++  // Existing paths.
++  if (!empty($form['purl_disabled_path'])) {
++    $rows[] = array(
++      array('data' => t('Remove'), 'header' => TRUE, 'class' => 'remove'),
++      array('data' => t('Path'), 'header' => TRUE, 'class' => 'path'),
++      array('data' => t('Disable rewriting'), 'header' => TRUE, 'class' => 'disable'),
++    );
++    foreach (element_children($form['purl_disabled_path']) as $pathset) {
++      $row = array();
++      $row[] = drupal_render($form['remove'][$pathset]);
++
++      $row[] = "<pre>". check_plain($pathset) ."</pre>";
++      $row[] = drupal_render($form['purl_disabled_path'][$pathset]);
++      $rows[] = $row;
++    }
++    $rows[] = array(array('data' => drupal_render($form['save']), 'colspan' => 3));
++  }
++
++  $output = theme('table', $header, $rows, array('class' => 'purl-disabled-form'));
++  $output .= drupal_render($form);
++  return $output;
++}
+diff --git a/profiles/openatrium/modules/contrib/purl/purl.module b/profiles/openatrium/modules/contrib/purl/purl.module
+index b75f73c..ff1bee0 100644
+--- a/profiles/openatrium/modules/contrib/purl/purl.module
++++ b/profiles/openatrium/modules/contrib/purl/purl.module
+@@ -14,9 +14,8 @@ function purl_boot() {
+  */
+ function purl_theme($existing, $type, $theme, $path) {
+   return array(
+-    'purl_settings_form' => array(
+-      'arguments' => array('form' => NULL),
+-    ),
++	'purl_settings_form' => array('arguments' => array('form' => NULL)),
++	'purl_disabled_path_form' => array('arguments' => array('form' => NULL)),
+   );
+ }
+ 
+@@ -87,6 +86,16 @@ function purl_menu() {
+     'access arguments' => array('administer site configuration'),
+     'weight' => 11,
+   );
++  $items['admin/settings/purl/disabled'] = array(
++    'type' => MENU_LOCAL_TASK,
++    'title' => 'Disabled paths',
++    'page callback' => 'drupal_get_form',
++    'page arguments' => array('purl_disabled_path_form'),
++    'file' => 'purl.admin.inc',
++    'access callback' => 'user_access',
++    'access arguments' => array('administer site configuration'),
++    'weight' => 12,
++  );
+   return $items;
+ }
+ 
+@@ -886,19 +895,44 @@ function purl_get_processor($method) {
+  *   purl_path_element object
+  * @param $o
+  *   url options array.
++ * @param $p
++ *	 path that is being rewitten.
+  * @return true if processing should be skipped, false otherwise.
+  */
+-function _purl_skip($e, $o) {
++function _purl_skip($e, $o, $p = NULL) {
+   if (!empty($o['purl']['disabled'])) {
+-    return true;
++    return TRUE;
+   }
+   if (isset($o['purl']['remove'])) {
+     return in_array($e->provider, $o['purl']['remove']);
+   }
+-  return false;
++  return purl_disabled_path($p, $e->provider);
+ }
+ 
+ /**
++ * Determine whether rewriting is disabled for a given path/provider pair.
++ */
++function purl_disabled_path($path, $provider, $reset = FALSE) {
++  static $cache;
++  if (!isset($cache) || $reset) {
++    foreach (variable_get('purl_disabled_path', array()) as $pathset => $providers) {
++      foreach (array_keys(array_filter($providers)) as $p) {
++        $cache[$p][$pathset] = $pathset;
++      }
++    }
++    drupal_alter('purl_disabled_path', $cache);
++  }
++  if (isset($cache[$provider]) && !empty($path)) {
++    foreach ($cache[$provider] as $pathset) {
++      if (drupal_match_path($path, $pathset)) {
++        return TRUE;
++      }
++    }
++  }
++  return FALSE;
++ }
++
++/**
+  * Generate a array of purl_path_elements objects from parsed values.
+  *
+  * @param $processor
