@@ -9,7 +9,9 @@ projects[openatrium][type] = "profile"
 projects[openatrium][version] = "1.6"
 
 ; Patches for Open Atrium
-projects[drupal][patch][] = "https://community.openatrium.com/sites/community.openatrium.com/files/purl_diable_path.patch"
+; This one was applied manually since drush doesn't have a 
+; post-install target AFAIK. Patch stored in patches directory too.
+; projects[drupal][patch][] = "https://community.openatrium.com/sites/community.openatrium.com/files/purl_diable_path.patch"
 
 ; Security updates for Open Atrium
 projects[ctools][version] = "1.10"
