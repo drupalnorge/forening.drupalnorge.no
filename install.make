@@ -4,7 +4,7 @@ core = 6.x
 api = 2
 
 ; Open Atrium
-projects[drupal][version] = "6.27"
+projects[drupal][version] = "6.28"
 projects[openatrium][type] = "profile"
 projects[openatrium][version] = "1.6"
 
